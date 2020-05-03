@@ -123,7 +123,7 @@ class YoloLoss(nn.Module):
 
         no_object_pred = pred_tensor[no_object_mask].view(-1, 30)
         no_object_target = target_tensor[no_object_mask].view(-1, 30)
-        no_object_pred_mask = torch.cuda.ByteTensor(no_object_pred.size())
+        no_object_pred_mask = torch.ByteTensor(no_object_pred.size())
         no_object_pred_mask.zero_()
         no_object_pred_mask[:, 4] = 1
         no_object_pred_mask[:, 9] = 1
@@ -168,7 +168,7 @@ class YoloLoss(nn.Module):
             box1_xyxy = Variable(torch.FloatTensor(box1.size()))
             box1_xyxy[:,:2] = box1[:, :2] / 14. - 0.5 * box1[:, 2:4]
             box1_xyxy[:, 2:4] = box1[:, :2] / 14. + 0.5 * box1[:, 2:4]
-            box2 = bounding_box_target[i].view(-1,5)
+            box2 = box_target[i].view(-1,5)
             box2_xyxy = Variable(torch.FloatTensor(box2.size()))
             box2_xyxy[:,:2] = box2[:, :2] / 14. - 0.5 * box2[:, 2:4]
             box2_xyxy[:, 2:4] = box2[:, :2] / 14. + 0.5*box2[:, 2:4]
@@ -204,9 +204,9 @@ class YoloLoss(nn.Module):
         
         ##### CODE #####
 
-        contains_object_mask = target_tensor[:,:,:,4] > 0
+        contains_object_mask = target_tensor[:, :, :, 4] > 0
         contains_object_mask = contains_object_mask.unsqueeze(-1).expand_as(target_tensor)
-        no_object_mask = target_tensor[:,:,:,4] == 0
+        no_object_mask = target_tensor[:, :, :, 4] == 0
         no_object_mask = no_object_mask.unsqueeze(-1).expand_as(target_tensor)
 
         # Create a tensor contains_object_pred that corresponds to 
@@ -242,7 +242,7 @@ class YoloLoss(nn.Module):
         
         ##### CODE #####
 
-        box_target_iou, contains_object_response_mask = find_best_iou_boxes(bounding_box_target, bounding_box_pred)
+        box_target_iou, contains_object_response_mask = self.find_best_iou_boxes(bounding_box_target, bounding_box_pred)
 
         # Create 3 tensors :
         # 1) box_prediction_response - bounding box predictions for each grid cell which has the maximum iou
@@ -261,7 +261,7 @@ class YoloLoss(nn.Module):
 
         class_loss = self.get_class_prediction_loss(classes_pred, classes_target)
         contain_loss = self.get_contain_conf_loss(box_prediction_response, box_target_response_iou)
-        regression_loss = self.get_regression_loss(self, box_prediction_response, box_target_response)
+        regression_loss = self.get_regression_loss(box_prediction_response, box_target_response)
 
         total_loss = (class_loss + 2 * contain_loss + self.l_coord * regression_loss + self.l_noobj * no_object_loss) / N
         return total_loss
